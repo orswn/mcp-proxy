@@ -98,6 +98,24 @@ type OAuthClientConfig struct {
 	// some providers (e.g. Datadog) only serve it at the RFC 8414
 	// location.
 	AuthServerMetadataURL string `json:"authServerMetadataUrl,omitempty"`
+	// AuthorizationParams are extra query parameters for the authorization
+	// URL. Google issues a refresh token only when the request carries
+	// access_type=offline, and repeats it on re-consent only with
+	// prompt=consent; without them the token expires after an hour.
+	AuthorizationParams map[string]string `json:"authorizationParams,omitempty"`
+}
+
+// reservedAuthorizationParams are set by the authorization-code flow itself.
+// Overriding one would break PKCE, state validation, or the redirect.
+var reservedAuthorizationParams = map[string]bool{
+	"response_type":         true,
+	"client_id":             true,
+	"redirect_uri":          true,
+	"state":                 true,
+	"scope":                 true,
+	"code_challenge":        true,
+	"code_challenge_method": true,
+	"resource":              true,
 }
 
 const defaultOAuthRedirectURI = "http://localhost:8090/oauth/callback"
@@ -481,6 +499,11 @@ func validateConfig(config *Config) error {
 			if metadataURL := serverConfig.OAuth.AuthServerMetadataURL; metadataURL != "" {
 				if err := validateHTTPURL(field+".oauth.authServerMetadataUrl", metadataURL); err != nil {
 					return err
+				}
+			}
+			for key := range serverConfig.OAuth.AuthorizationParams {
+				if key == "" || reservedAuthorizationParams[key] {
+					return fmt.Errorf("%s.oauth.authorizationParams: %q is reserved or empty", field, key)
 				}
 			}
 		}

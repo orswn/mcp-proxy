@@ -158,6 +158,26 @@ as the OAuth client on the downstream connection:
   check `<issuer>/.well-known/oauth-authorization-server` vs.
   `<scheme>://<host>/.well-known/oauth-authorization-server<path>` by hand
   and set this field to whichever one responds.
+- `authorizationParams` (object, optional): extra query parameters added to
+  the authorization URL. The flow's own parameters (`response_type`,
+  `client_id`, `redirect_uri`, `state`, `scope`, `code_challenge`,
+  `code_challenge_method`, `resource`) are rejected. Google needs this: it
+  issues a refresh token only for `access_type=offline`, and on a repeat
+  authorization only with `prompt=consent`. Without them the access token
+  expires after about an hour and the server needs `-authorize` again.
+
+  ```jsonc
+  "gmail": {
+    "url": "https://gmailmcp.googleapis.com/mcp/v1",
+    "transportType": "streamable-http",
+    "oauth": {
+      "clientId": "<id>.apps.googleusercontent.com",
+      "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+      "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+      "authorizationParams": { "access_type": "offline", "prompt": "consent" }
+    }
+  }
+  ```
 
 Tokens are persisted to `<user config dir>/mcp-proxy/oauth/<server>.json`
 (e.g. `~/.config/mcp-proxy/oauth/notion.json` on Linux) and refreshed

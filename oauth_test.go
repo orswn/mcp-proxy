@@ -161,3 +161,35 @@ func closeResponse(t *testing.T, response *http.Response) {
 		t.Fatalf("close response body: %v", err)
 	}
 }
+
+func TestWithAuthorizationParams(t *testing.T) {
+	t.Parallel()
+
+	base := "https://accounts.google.com/o/oauth2/v2/auth?client_id=abc&response_type=code&state=s1"
+
+	got, err := withAuthorizationParams(base, nil)
+	if err != nil || got != base {
+		t.Fatalf("no params: got %q, %v; want the URL unchanged", got, err)
+	}
+
+	got, err = withAuthorizationParams(base, map[string]string{"access_type": "offline", "prompt": "consent"})
+	if err != nil {
+		t.Fatalf("withAuthorizationParams: %v", err)
+	}
+	u, err := url.Parse(got)
+	if err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if u.Host != "accounts.google.com" || u.Path != "/o/oauth2/v2/auth" {
+		t.Fatalf("endpoint changed: %s", got)
+	}
+	q := u.Query()
+	for key, want := range map[string]string{
+		"access_type": "offline", "prompt": "consent",
+		"client_id": "abc", "response_type": "code", "state": "s1",
+	} {
+		if q.Get(key) != want {
+			t.Errorf("%s = %q, want %q (url %s)", key, q.Get(key), want, got)
+		}
+	}
+}

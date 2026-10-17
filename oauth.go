@@ -123,7 +123,7 @@ func runAuthorize(configPath, serverName string, insecure, expandEnv bool, httpH
 	defer cancel()
 
 	if err := mcpClient.Start(ctx); err != nil {
-		if authErr := authorizeInteractively(ctx, err, serverName, redirectURI); authErr != nil {
+		if authErr := authorizeInteractively(ctx, err, serverName, redirectURI, oauthConf.AuthorizationParams); authErr != nil {
 			return authErr
 		}
 		if err := mcpClient.Start(ctx); err != nil {
@@ -135,7 +135,7 @@ func runAuthorize(configPath, serverName string, insecure, expandEnv bool, httpH
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{Name: "mcp-proxy-authorize", Version: BuildVersion}
 	if _, err := mcpClient.Initialize(ctx, initRequest); err != nil {
-		if authErr := authorizeInteractively(ctx, err, serverName, redirectURI); authErr != nil {
+		if authErr := authorizeInteractively(ctx, err, serverName, redirectURI, oauthConf.AuthorizationParams); authErr != nil {
 			return authErr
 		}
 		if _, err := mcpClient.Initialize(ctx, initRequest); err != nil {
@@ -150,7 +150,7 @@ func runAuthorize(configPath, serverName string, insecure, expandEnv bool, httpH
 // authorizeInteractively runs the browser + local-callback OAuth dance if
 // err indicates authorization is required; otherwise it returns err (redacted,
 // since a transport error embeds the downstream URL) as-is.
-func authorizeInteractively(ctx context.Context, err error, serverName, redirectURI string) error {
+func authorizeInteractively(ctx context.Context, err error, serverName, redirectURI string, authParams map[string]string) error {
 	if !client.IsOAuthAuthorizationRequiredError(err) {
 		return redactURLCredentials(err)
 	}
@@ -192,6 +192,10 @@ func authorizeInteractively(ctx context.Context, err error, serverName, redirect
 	if err != nil {
 		return fmt.Errorf("failed to build authorization URL: %w", err)
 	}
+	authURL, err = withAuthorizationParams(authURL, authParams)
+	if err != nil {
+		return fmt.Errorf("failed to build authorization URL: %w", err)
+	}
 
 	slog.Info("Opening browser for authorization", "server", serverName, "url", authURL)
 	openBrowser(authURL)
@@ -216,6 +220,24 @@ func authorizeInteractively(ctx context.Context, err error, serverName, redirect
 	case <-ctx.Done():
 		return fmt.Errorf("timed out waiting for authorization callback: %w", ctx.Err())
 	}
+}
+
+// withAuthorizationParams adds the configured extra parameters to an
+// authorization URL. Config validation rejects the keys the flow owns.
+func withAuthorizationParams(authURL string, params map[string]string) (string, error) {
+	if len(params) == 0 {
+		return authURL, nil
+	}
+	u, err := url.Parse(authURL)
+	if err != nil {
+		return "", err
+	}
+	query := u.Query()
+	for key, value := range params {
+		query.Set(key, value)
+	}
+	u.RawQuery = query.Encode()
+	return u.String(), nil
 }
 
 // oauthAwareError rewrites an OAuthAuthorizationRequiredError into a message

@@ -126,6 +126,20 @@ func TestValidateConfig(t *testing.T) {
 				Options: &OptionsV2{},
 			}
 		}, wantErr: "clientSecret requires clientId"},
+		{name: "reserved authorization param", mutate: func(c *Config) {
+			c.McpServers["stdio"] = &MCPClientConfigV2{
+				URL:     "https://example.com/mcp",
+				OAuth:   &OAuthClientConfig{AuthorizationParams: map[string]string{"state": "fixed"}},
+				Options: &OptionsV2{},
+			}
+		}, wantErr: "authorizationParams"},
+		{name: "empty authorization param", mutate: func(c *Config) {
+			c.McpServers["stdio"] = &MCPClientConfigV2{
+				URL:     "https://example.com/mcp",
+				OAuth:   &OAuthClientConfig{AuthorizationParams: map[string]string{"": "x"}},
+				Options: &OptionsV2{},
+			}
+		}, wantErr: "authorizationParams"},
 	}
 
 	for _, tt := range tests {

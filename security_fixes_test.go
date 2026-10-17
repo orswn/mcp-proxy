@@ -712,7 +712,7 @@ func TestAuthorizeInteractivelyRedactsNonAuthError(t *testing.T) {
 	t.Parallel()
 
 	urlErr := &url.Error{Op: "Post", URL: "https://mcp.example.com/mcp?key=AUTH_SECRET", Err: errors.New("refused")}
-	got := authorizeInteractively(context.Background(), urlErr, "server", "http://localhost:8090/oauth/callback")
+	got := authorizeInteractively(context.Background(), urlErr, "server", "http://localhost:8090/oauth/callback", nil)
 	if got == nil {
 		t.Fatal("expected the non-auth error to be returned")
 	}
